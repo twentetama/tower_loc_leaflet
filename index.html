@@ -143,20 +143,17 @@
         map.getSource('single-point').setData(searchResult);
       });
 
-
-
-
+      map.setLayoutProperty('towers', 'visibility', 'none');
       var clickState = 0;
       var btn = document.querySelector('.button-elem');
       btn.addEventListener('click', function(){
-        map.setLayoutProperty('towers', 'visibility', 'none');
         if (clickState == 0) {
           // code snippet 1
           map.setLayoutProperty('towers', 'visibility', 'visible');
           clickState = 1;
         } else {
           // code snippet 2
-          map.setLayoutProperty('towers', 'visibility', 'false');
+          map.setLayoutProperty('towers', 'visibility', 'none');
           clickState = 0;
         }
       });

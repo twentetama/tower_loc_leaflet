@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='utf-8' />
+    <title></title>
+    <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+    <!-- initiate mapbox-->
+    <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v0.51.0/mapbox-gl.js'></script>
+    <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v0.51.0/mapbox-gl.css' rel='stylesheet' />
+    <!-- Geocoder plugin -->
+    <script src='https://npmcdn.com/@turf/turf/turf.min.js'></script>
+    <script src='https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v2.3.0/mapbox-gl-geocoder.min.js'></script>
+    <link rel='stylesheet' href='https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v2.3.0/mapbox-gl-geocoder.css' type='text/css' />
+    <!-- import geoJSON -->
+    <script src="data/tower_loc.geojson"></script>
+    <!-- import leaflet-->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.3.4/dist/leaflet.css"
+   integrity="sha512-puBpdR0798OZvTTbP4A8Ix/l+A4dHDD0DGqYW6RQ+9jxkRFclaxxQb/SJAWZfWAkuyeQUytO7+7N4QKrDh+drA=="
+   crossorigin=""/>
+   <script src="https://unpkg.com/leaflet@1.3.4/dist/leaflet.js"
+   integrity="sha512-nMMmRyTVoLYqjP9hrbed9S+FzjZHW5gY1TWCHA5ckwXZBadntCNs8kEqAWdrb9O7rxbCaA4lKTIWjDXZxflOcA=="
+   crossorigin=""></script>
+
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+      }
+
+      #map {
+        position: absolute;
+        width: 100%;
+        height: 400px;
+      }
+      html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+
+      }
+      h1 {
+        font-family: verdana;
+        text-align: left;
+      }
+      .input-coordinate {
+        font: 12px/20px 'Helvetica Neue', Arial, Helvetica, sans-serif;
+        font-weight: 600;
+        position: absolute;
+        top: 500px;
+        left: 10px;
+        z-index: 1;
+        border-radius: 3px;
+        max-width: 20%;
+      }
+      .display-toggle {
+        font: 12px/20px 'Helvetica Neue', Arial, Helvetica, sans-serif;
+        font-weight: 600;
+        position: absolute;
+        top: 500px;
+        right: 10px;
+        z-index: 1;
+        border-radius: 3px;
+        max-width: 20%;
+      }
+
+    </style>
+</head>
+<body>
+  <h1> Communication Tower Locator </h1>
+  <div id='map'></div>
+
+  <div class='display-toggle'>
+    <button class="button-elem">Existing Location</button>
+  </div>
+  <div class='input-coordinate'>
+    <form>
+      <p> Please enter the coordinate below </p>
+      Latitude:<br>
+      <input type="text" id="lat" value=""><br>
+      Longitude:<br>
+      <input type="text" id="lng" value=""><br><br>
+      <input type="button" value="Submit" onclick="getLoc()"/>
+      <input type="reset">
+    </form>
+  </div>
+
+  <!--javascript-->
+  <script>
+    //initiate mapbox
+    mapboxgl.accessToken = 'pk.eyJ1IjoiamF3YXN0cmVzcyIsImEiOiJjanBjc3cwOWIxNzVrM3Fta2R1NGZmdW12In0.ra1FXvu_TM9MmhiL7VZuqA';
+    var map = new mapboxgl.Map({
+      container: 'map', // container id
+      style: 'mapbox://styles/mapbox/satellite-streets-v9', // stylesheet location
+      center: [118.0149, -2.5489], // starting position
+      zoom: 4 // starting zoom
+    });
+
+    map.addControl(new mapboxgl.NavigationControl());
+
+    map.on('load', function() {
+      map.addLayer({
+        id: 'towers',
+        type: 'symbol',
+        source: {
+          type: 'geojson',
+          data: towerLoc
+        },
+        layout: {
+          'icon-image': 'hospital-15'
+        },
+        paint: { }
+      });
+
+      var geocoder = new MapboxGeocoder({
+        accessToken: mapboxgl.accessToken,
+      });
+
+      map.addControl(geocoder, 'top-left');
+
+      //add point on Geocoder
+      map.addSource('single-point', {
+        type: 'geojson',
+        data: {
+          type: 'FeatureCollection',
+          features: [] // Notice that initially there are no features
+        }
+      });
+
+      map.addLayer({
+        id: 'point',
+        source: 'single-point',
+        type: 'circle',
+        paint: {
+          'circle-radius': 10,
+          'circle-color': '#007cbf',
+          'circle-stroke-width': 3,
+          'circle-stroke-color': '#fff'
+        }
+      });
+
+      geocoder.on('result', function(ev) {
+        var searchResult = ev.result.geometry;
+        map.getSource('single-point').setData(searchResult);
+      });
+
+
+
+
+      var clickState = 0;
+      var btn = document.querySelector('.button-elem');
+      btn.addEventListener('click', function(){
+        map.setLayoutProperty('towers', 'visibility', 'none');
+        if (clickState == 0) {
+          // code snippet 1
+          map.setLayoutProperty('towers', 'visibility', 'visible');
+          clickState = 1;
+        } else {
+          // code snippet 2
+          map.setLayoutProperty('towers', 'visibility', 'false');
+          clickState = 0;
+        }
+      });
+
+      var popup = new mapboxgl.Popup();
+
+      map.on('mousemove', function(e) {
+        var features = map.queryRenderedFeatures(e.point, { layers: ['towers'] });
+        if (!features.length) {
+          popup.remove();
+          return;
+        }
+        var feature = features[0];
+        var kordinat = feature.geometry.coordinates;
+        var technology = feature.properties.Teknologi;
+        var Tempat = feature.properties.Lokasi
+
+        popup.setLngLat(feature.geometry.coordinates)
+        .setHTML('<h3>'+Tempat+'</h3>'+'<p>'+technology+'</p>'+'<p>'+kordinat+'</p>')
+        .addTo(map);
+
+        map.getCanvas().style.cursor = features.length ? 'pointer' : '';
+      });
+    });
+
+    function getLoc() {
+      var newLat = document.getElementById('lat').value;
+      var newLong = document.getElementById('lng').value;
+      var newLoc = L.latLng(newLat, newLong);
+      console.log(newLoc);
+      addNewMarker(newLoc);
+    };
+
+    function addNewMarker (location){
+      var newLat = document.getElementById('lat').value;
+      var newLong = document.getElementById('lng').value;
+      var popup = new mapboxgl.Popup({ offset: 25 })
+        .setText("new location coordinate= "+newLat+", "+newLong);
+      newMarker = new mapboxgl.Marker()
+        .setLngLat(location)
+        .setPopup(popup)
+        .addTo(map)
+      };
+
+
+
+  </script>
+</body>
+</html>

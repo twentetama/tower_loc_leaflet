@@ -106,7 +106,7 @@ map.on('load', function() {
     source: 'new-point',
     paint: {
       'circle-radius': 10,
-      'circle-color': '#486DE0'
+      'circle-color': '#FF0000'
     }
   });
 });

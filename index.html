@@ -1,8 +1,9 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <meta charset='utf-8' />
-    <title></title>
+    <title>Bakti Communication Tower Location</title>
     <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
     <!-- initiate mapbox-->
     <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v0.51.0/mapbox-gl.js'></script>
@@ -65,6 +66,7 @@
 
     </style>
 </head>
+
 <body>
   <h1> Communication Tower Locator </h1>
   <div id='map'></div>
@@ -79,127 +81,12 @@
       <input type="text" id="lat" value=""><br>
       Longitude:<br>
       <input type="text" id="lng" value=""><br><br>
-      <input type="button" value="Submit" onclick="getLoc()"/>
-      <input type="reset">
+      <input type="button" value="Submit" onclick="addNewMarker()"/>
+      <input type="reset" onclick="reSet()">
     </form>
   </div>
-
-  <!--javascript-->
-  <script>
-    //initiate mapbox
-    mapboxgl.accessToken = 'pk.eyJ1IjoiamF3YXN0cmVzcyIsImEiOiJjanBjc3cwOWIxNzVrM3Fta2R1NGZmdW12In0.ra1FXvu_TM9MmhiL7VZuqA';
-    var map = new mapboxgl.Map({
-      container: 'map', // container id
-      style: 'mapbox://styles/mapbox/satellite-streets-v9', // stylesheet location
-      center: [118.0149, -2.5489], // starting position
-      zoom: 4 // starting zoom
-    });
-
-    map.addControl(new mapboxgl.NavigationControl());
-
-    map.on('load', function() {
-      map.addLayer({
-        id: 'towers',
-        type: 'symbol',
-        source: {
-          type: 'geojson',
-          data: towerLoc
-        },
-        layout: {
-          'icon-image': 'hospital-15'
-        },
-        paint: { }
-      });
-
-      var geocoder = new MapboxGeocoder({
-        accessToken: mapboxgl.accessToken,
-      });
-
-      map.addControl(geocoder, 'top-left');
-
-      //add point on Geocoder
-      map.addSource('single-point', {
-        type: 'geojson',
-        data: {
-          type: 'FeatureCollection',
-          features: [] // Notice that initially there are no features
-        }
-      });
-
-      map.addLayer({
-        id: 'point',
-        source: 'single-point',
-        type: 'circle',
-        paint: {
-          'circle-radius': 10,
-          'circle-color': '#007cbf',
-          'circle-stroke-width': 3,
-          'circle-stroke-color': '#fff'
-        }
-      });
-
-      geocoder.on('result', function(ev) {
-        var searchResult = ev.result.geometry;
-        map.getSource('single-point').setData(searchResult);
-      });
-
-      map.setLayoutProperty('towers', 'visibility', 'none');
-      var clickState = 0;
-      var btn = document.querySelector('.button-elem');
-      btn.addEventListener('click', function(){
-        if (clickState == 0) {
-          // code snippet 1
-          map.setLayoutProperty('towers', 'visibility', 'visible');
-          clickState = 1;
-        } else {
-          // code snippet 2
-          map.setLayoutProperty('towers', 'visibility', 'none');
-          clickState = 0;
-        }
-      });
-
-      var popup = new mapboxgl.Popup();
-
-      map.on('mousemove', function(e) {
-        var features = map.queryRenderedFeatures(e.point, { layers: ['towers'] });
-        if (!features.length) {
-          popup.remove();
-          return;
-        }
-        var feature = features[0];
-        var kordinat = feature.geometry.coordinates;
-        var technology = feature.properties.Teknologi;
-        var Tempat = feature.properties.Lokasi
-
-        popup.setLngLat(feature.geometry.coordinates)
-        .setHTML('<h3>'+Tempat+'</h3>'+'<p>'+technology+'</p>'+'<p>'+kordinat+'</p>')
-        .addTo(map);
-
-        map.getCanvas().style.cursor = features.length ? 'pointer' : '';
-      });
-    });
-
-    function getLoc() {
-      var newLat = document.getElementById('lat').value;
-      var newLong = document.getElementById('lng').value;
-      var newLoc = L.latLng(newLat, newLong);
-      console.log(newLoc);
-      addNewMarker(newLoc);
-    };
-
-    function addNewMarker (location){
-      var newLat = document.getElementById('lat').value;
-      var newLong = document.getElementById('lng').value;
-      var popup = new mapboxgl.Popup({ offset: 25 })
-        .setText("new location coordinate= "+newLat+", "+newLong);
-      newMarker = new mapboxgl.Marker()
-        .setLngLat(location)
-        .setPopup(popup)
-        .addTo(map)
-      };
-
-
-
-  </script>
 </body>
+
+<!-- import spatial.js-->
+<script src="js/spatial.js"></script>
 </html>

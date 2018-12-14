@@ -92,6 +92,7 @@ map.on('load', function() {
     }
   });
 
+  //container for new location
   map.addSource('new-point', {
     type: 'geojson',
     data: {
@@ -109,6 +110,33 @@ map.on('load', function() {
       'circle-color': '#FF0000'
     }
   });
+
+  //container for route
+  map.addSource('route', {
+    type: 'geojson',
+    data: {
+      type: 'FeatureCollection',
+      features: []
+    }
+  });
+
+  map.addLayer({
+    id: 'route',
+    type: 'line',
+    source: 'route',
+    layout: {
+      'line-join': 'round',
+      'line-cap': 'round'
+    },
+    paint: {
+      'line-color': '#3887be',
+      'line-width': {
+        base: 1,
+        stops: [[12, 3], [22, 12]]
+      }
+    }
+  }, 'waterway-label');
+
 });
 var point = null;
 var popup = null;
@@ -123,7 +151,22 @@ function addNewMarker (){
   var newLoc = L.latLng(newLat, newLong);
   var point = turf.point([newLong, newLat]);
   var nearestTower = turf.nearest(point, towerLoc);
-  var distance = Math.round(nearestTower.properties.distanceToPoint)
+  var distance = Math.round(nearestTower.properties.distanceToPoint);
+  var targetDis = nearestTower;
+  let distanceRoad = null;
+
+  //zooming
+  map.flyTo({
+    center: newLoc,
+    zoom: 8,
+    bearing: 0,
+    speed: 0.5,
+    curve: 0.5,
+    easing: function (t) {
+        return t;
+      }
+    });
+
   console.log(nearestTower);
 
   map.getSource('new-point').setData({
@@ -131,22 +174,70 @@ function addNewMarker (){
       features: [nearestTower]
     });
 
+  $.ajax({
+    method: 'GET',
+    url: 'https://api.mapbox.com/optimized-trips/v1/mapbox/driving/'+newLong+','+newLat+';'+nearestTower.geometry.coordinates+'?geometries=geojson&access_token='+mapboxgl.accessToken,
+  }).done(function(data){
+    console.log(data);
+    var rute = data;
+    var routeGeoJSON = turf.featureCollection([turf.feature(data.trips[0].geometry)]);
+    map.getSource('route')
+        .setData(routeGeoJSON);
+    let distanceRoad = Math.round(rute.trips[0].distance/1000);
+    console.log(distanceRoad);
+
+    //popup
+    var popup = new mapboxgl.Popup({ offset: 25 })
+      .setHTML('<h3>New Location</h3>'+'<p>Coordinate : '+newLat+', '+newLong+'</p>'+'<h4>Nearest Tower</h4>'+'<p>'+nearestTower.properties.Lokasi+'</p>'+'<p>Distance (r): '+distance+' km</p>'+'<p>Distance (road network): '+distanceRoad+' km</p>');
+    newMarker = new mapboxgl.Marker()
+      .setLngLat(newLoc)
+      .setPopup(popup)
+      .addTo(map);
+  });
 
 
-  var popup = new mapboxgl.Popup({ offset: 25 })
-    .setHTML('<h3>New Location</h3>'+'<p>Coordinate : '+newLat+', '+newLong+'</p>'+'<h4>Nearest Tower</h4>'+'<p>'+nearestTower.properties.Lokasi+'</p>'+'<p>Distance: '+distance+' KM</p>');
-  newMarker = new mapboxgl.Marker()
-    .setLngLat(newLoc)
-    .setPopup(popup)
-    .addTo(map);
 };
 
 function reSet(){
+  newMarker.remove();
+
+  //remove new point
   map.getSource('new-point').setData({
       type: 'FeatureCollection',
       features: []
     });;
-  newMarker.remove();
   map.removeLayer('new-point');
+  map.addLayer({
+    id: 'new-point',
+    type: 'circle',
+    source: 'new-point',
+    paint: {
+      'circle-radius': 10,
+      'circle-color': '#FF0000'
+    }
+  });
+
+  //remove route
+  map.removeLayer('route');
+  map.getSource('route').setData({
+      type: 'FeatureCollection',
+      features: []
+    });;
+  map.addLayer({
+    id: 'route',
+    type: 'line',
+    source: 'route',
+    layout: {
+      'line-join': 'round',
+      'line-cap': 'round'
+    },
+    paint: {
+      'line-color': '#3887be',
+      'line-width': {
+        base: 1,
+        stops: [[12, 3], [22, 12]]
+      }
+    }
+  }, 'waterway-label');
 
 };

@@ -189,6 +189,7 @@ var popup = null;
 var newMarker = null;
 var nearestTower = null;
 var linesDashed = null;
+var element = document.getElementById("info");
 
 
 //Add point based on latlong input
@@ -239,7 +240,10 @@ function addNewMarker (){
     var noRoadDashed2 = turf.multiLineString([noRoad1,noRoad2]);
 
     //var noRoadDashed = turf.lineString(noRoad);
-    var radDashed = turf.lineString(radiusDis)
+
+    var radDashed = turf.lineString(radiusDis);
+
+
     map.getSource('route')
         .setData(routeGeoJSON);
 
@@ -250,18 +254,40 @@ function addNewMarker (){
         .setData(radDashed);
 
     let distanceRoad = Math.round(rute.routes[0].distance/1000);
+    var noRoadValue1 = Math.round((distanceNoRoad1*1609.344)/1000);
+    var noRoadValue2 = Math.round((distanceNoRoad2*1609.344)/1000);
     var noRoadValue = Math.round((((distanceNoRoad1*1609.344)+(distanceNoRoad2*1609.344))/1000));
-    var multiLine = turf.multiLineString([[[0,0],[10,10]]]);
+
+
+    //if condition
+    /*if (distanceNoRoad1 = 0 || distanceNoRoad2 = 0){
+      var popup = new mapboxgl.Popup({ offset: 25 })
+        .setHTML('<h3>New Location</h3>'+'<p>Coordinate : '+newLat+', '+newLong+'</p>'+'<h4>Nearest Tower</h4>'+'<p>'+nearestTower.properties.Lokasi+'</p>'+'<p>Distance (r): '+distance+' km</p>'+'<p>Distance (road network): '+distanceRoad+' km +'+noRoadValue+' km non-road</p>');
+    } else {
+      var popup = new mapboxgl.Popup({ offset: 25 })
+        .setHTML('<h3>New Location</h3>'+'<p>Coordinate : '+newLat+', '+newLong+'</p>'+'<h4>Nearest Tower</h4>'+'<p>'+nearestTower.properties.Lokasi+'</p>'+'<p>Distance (r): '+distance+' km</p>'+'<p>Distance (road network): '+distanceRoad+' km +'+noRoadValue+' km non-road</p>');
+    }*/
 
     console.log(noRoadValue);
 
     //popup
     var popup = new mapboxgl.Popup({ offset: 25 })
-      .setHTML('<h3>New Location</h3>'+'<p>Coordinate : '+newLat+', '+newLong+'</p>'+'<h4>Nearest Tower</h4>'+'<p>'+nearestTower.properties.Lokasi+'</p>'+'<p>Distance (r): '+distance+' km</p>'+'<p>Distance (road network): '+distanceRoad+' km +'+noRoadValue+' km non-road</p>');
+      .setHTML('<h3>New Location</h3>'+'<p>Coordinate : '+newLat+', '+newLong+'</p>');
+
     newMarker = new mapboxgl.Marker()
       .setLngLat(newLoc)
       .setPopup(popup)
       .addTo(map);
+
+    if (noRoadValue1 === 0 && noRoadValue2 === 0){
+      element.innerHTML = '<h2><b>Nearest Tower</b></h2>'+'<p>'+nearestTower.properties.Lokasi+'</p>'+'<p>Distance (r): '+distance+' km</p>'+'<p>Distance (road network): '+distanceRoad;
+    } else if (noRoadValue1 === 0 && noRoadValue2 <= 1){
+      element.innerHTML = '<h2><b>Nearest Tower</b></h2>'+'<p>'+nearestTower.properties.Lokasi+'</p>'+'<p>Distance (r): '+distance+' km</p>'+'<p>Distance (road network): '+distanceRoad+' km</p>'+'<p>Non road distance = '+noRoadValue+' km</p>';
+    } else if (noRoadValue1 <= 1 && noRoadValue2 === 0){
+      element.innerHTML = '<h2><b>Nearest Tower</b></h2>'+'<p>'+nearestTower.properties.Lokasi+'</p>'+'<p>Distance (r): '+distance+' km</p>'+'<p>Distance (road network): '+distanceRoad+' km</p>'+'<p>Non road distance = '+noRoadValue+' km</p>';
+    } else {
+      element.innerHTML = '<h2><b>Nearest Tower</b></h2>'+'<p>'+nearestTower.properties.Lokasi+'</p>'+'<p>Distance (r): '+distance+' km</p>'+'<p>Distance (road network): '+distanceRoad+' km</p>'+'<p>Non road distance 1 (New location to the nearest road) = '+noRoadValue1+' km</p>'+'<p>Non road distance 2 (Existing location to the nearest road) = '+noRoadValue2+' km</p>';
+    };
   });
 };
 
@@ -348,5 +374,7 @@ function reSet(){
       'line-dasharray': [1, 2],
     }
   });
+
+  element.innerHTML = ''
 
 };

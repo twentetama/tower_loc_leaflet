@@ -130,18 +130,65 @@ map.on('load', function() {
     },
     paint: {
       'line-color': '#3887be',
-      'line-width': {
-        base: 1,
-        stops: [[12, 3], [22, 12]]
-      }
+      'line-width': 3,
     }
   }, 'waterway-label');
 
+  //container for non road
+  map.addSource('nonRoad', {
+    type: 'geojson',
+    data: {
+      type: 'FeatureCollection',
+      features: []
+    }
+  });
+
+  map.addLayer({
+    id: 'nonRoad',
+    type: 'line',
+    source: 'nonRoad',
+    layout: {
+      'line-join': 'round',
+      'line-cap': 'round'
+    },
+    paint: {
+      'line-color': '#3887be',
+      'line-width': 3,
+      'line-dasharray': [1, 2],
+    }
+  });
+
+  //container for radius distance
+  map.addSource('radDis', {
+    type: 'geojson',
+    data: {
+      type: 'FeatureCollection',
+      features: []
+    }
+  });
+
+  map.addLayer({
+    id: 'radDis',
+    type: 'line',
+    source: 'radDis',
+    layout: {
+      'line-join': 'round',
+      'line-cap': 'round'
+    },
+    paint: {
+      'line-color': '#D3D3D3',
+      'line-width': 3,
+      'line-dasharray': [1, 2],
+    }
+  });
+
 });
+
 var point = null;
 var popup = null;
 var newMarker = null;
 var nearestTower = null;
+var linesDashed = null;
 
 
 //Add point based on latlong input
@@ -152,15 +199,15 @@ function addNewMarker (){
   var point = turf.point([newLong, newLat]);
   var nearestTower = turf.nearest(point, towerLoc);
   var distance = Math.round(nearestTower.properties.distanceToPoint);
-  var targetDis = nearestTower;
   let distanceRoad = null;
+  console.log(newLat);
 
   //zooming
   map.flyTo({
     center: newLoc,
-    zoom: 8,
+    zoom: 10,
     bearing: 0,
-    speed: 0.5,
+    speed: 1,
     curve: 0.5,
     easing: function (t) {
         return t;
@@ -176,26 +223,41 @@ function addNewMarker (){
 
   $.ajax({
     method: 'GET',
-    url: 'https://api.mapbox.com/optimized-trips/v1/mapbox/driving/'+newLong+','+newLat+';'+nearestTower.geometry.coordinates+'?geometries=geojson&access_token='+mapboxgl.accessToken,
+    url: 'https://api.mapbox.com/directions/v5/mapbox/driving/'+newLong+','+newLat+';'+nearestTower.geometry.coordinates+'?access_token='+mapboxgl.accessToken+'&geometries=geojson',
   }).done(function(data){
-    console.log(data);
     var rute = data;
-    var routeGeoJSON = turf.featureCollection([turf.feature(data.trips[0].geometry)]);
+    var routeGeoJSON = turf.featureCollection([turf.feature(data.routes[0].geometry)]);
+    var nonRoad = data.routes[0].geometry.coordinates;
+    var lastPoint = nonRoad[0];
+    var noRoad = [lastPoint,[Number(newLong), Number(newLat)]];
+    var radiusDis = [nonRoad[nonRoad.length - 1],[Number(newLong), Number(newLat)]];
+
+    var noRoadDashed = turf.lineString(noRoad);
+    var radDashed = turf.lineString(radiusDis)
     map.getSource('route')
         .setData(routeGeoJSON);
-    let distanceRoad = Math.round(rute.trips[0].distance/1000);
-    console.log(distanceRoad);
+
+    map.getSource('nonRoad')
+        .setData(noRoadDashed);
+
+    map.getSource('radDis')
+        .setData(radDashed);
+
+    let distanceRoad = Math.round(rute.routes[0].distance/1000);
+
+    var distanceNoRoad = turf.distance(lastPoint, point, {units: 'miles'});
+    var noRoadValue = Math.round(distanceNoRoad*1609.344);
+
+    console.log(noRoadValue);
 
     //popup
     var popup = new mapboxgl.Popup({ offset: 25 })
-      .setHTML('<h3>New Location</h3>'+'<p>Coordinate : '+newLat+', '+newLong+'</p>'+'<h4>Nearest Tower</h4>'+'<p>'+nearestTower.properties.Lokasi+'</p>'+'<p>Distance (r): '+distance+' km</p>'+'<p>Distance (road network): '+distanceRoad+' km</p>');
+      .setHTML('<h3>New Location</h3>'+'<p>Coordinate : '+newLat+', '+newLong+'</p>'+'<h4>Nearest Tower</h4>'+'<p>'+nearestTower.properties.Lokasi+'</p>'+'<p>Distance (r): '+distance+' km</p>'+'<p>Distance (road network): '+distanceRoad+' km +'+noRoadValue+' m non-road</p>');
     newMarker = new mapboxgl.Marker()
       .setLngLat(newLoc)
       .setPopup(popup)
       .addTo(map);
   });
-
-
 };
 
 function reSet(){

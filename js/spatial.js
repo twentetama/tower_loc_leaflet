@@ -199,8 +199,9 @@ function addNewMarker (){
   var point = turf.point([newLong, newLat]);
   var nearestTower = turf.nearest(point, towerLoc);
   var distance = Math.round(nearestTower.properties.distanceToPoint);
+  var radCoor = nearestTower.geometry.coordinates;
   let distanceRoad = null;
-  console.log(newLat);
+  console.log(nearestTower);
 
   //zooming
   map.flyTo({
@@ -229,30 +230,34 @@ function addNewMarker (){
     var routeGeoJSON = turf.featureCollection([turf.feature(data.routes[0].geometry)]);
     var nonRoad = data.routes[0].geometry.coordinates;
     var lastPoint = nonRoad[0];
-    var noRoad = [lastPoint,[Number(newLong), Number(newLat)]];
-    var radiusDis = [nonRoad[nonRoad.length - 1],[Number(newLong), Number(newLat)]];
+    var noRoad1 = [lastPoint,[Number(newLong), Number(newLat)]];
+    var noRoad2 = [radCoor,nonRoad[nonRoad.length-1]];
+    var radiusDis = [radCoor,[Number(newLong), Number(newLat)]];
+    var distanceNoRoad1 = turf.distance(lastPoint, point, {units: 'miles'});
+    var distanceNoRoad2 = turf.distance(radCoor, nonRoad[nonRoad.length-1], {units: 'miles'});
 
-    var noRoadDashed = turf.lineString(noRoad);
+    var noRoadDashed2 = turf.multiLineString([noRoad1,noRoad2]);
+
+    //var noRoadDashed = turf.lineString(noRoad);
     var radDashed = turf.lineString(radiusDis)
     map.getSource('route')
         .setData(routeGeoJSON);
 
     map.getSource('nonRoad')
-        .setData(noRoadDashed);
+        .setData(noRoadDashed2);
 
     map.getSource('radDis')
         .setData(radDashed);
 
     let distanceRoad = Math.round(rute.routes[0].distance/1000);
-
-    var distanceNoRoad = turf.distance(lastPoint, point, {units: 'miles'});
-    var noRoadValue = Math.round(distanceNoRoad*1609.344);
+    var noRoadValue = Math.round((((distanceNoRoad1*1609.344)+(distanceNoRoad2*1609.344))/1000));
+    var multiLine = turf.multiLineString([[[0,0],[10,10]]]);
 
     console.log(noRoadValue);
 
     //popup
     var popup = new mapboxgl.Popup({ offset: 25 })
-      .setHTML('<h3>New Location</h3>'+'<p>Coordinate : '+newLat+', '+newLong+'</p>'+'<h4>Nearest Tower</h4>'+'<p>'+nearestTower.properties.Lokasi+'</p>'+'<p>Distance (r): '+distance+' km</p>'+'<p>Distance (road network): '+distanceRoad+' km +'+noRoadValue+' m non-road</p>');
+      .setHTML('<h3>New Location</h3>'+'<p>Coordinate : '+newLat+', '+newLong+'</p>'+'<h4>Nearest Tower</h4>'+'<p>'+nearestTower.properties.Lokasi+'</p>'+'<p>Distance (r): '+distance+' km</p>'+'<p>Distance (road network): '+distanceRoad+' km +'+noRoadValue+' km non-road</p>');
     newMarker = new mapboxgl.Marker()
       .setLngLat(newLoc)
       .setPopup(popup)
@@ -301,5 +306,47 @@ function reSet(){
       }
     }
   }, 'waterway-label');
+
+  //remove radius distance
+  map.removeLayer('radDis');
+  map.getSource('radDis').setData({
+      type: 'FeatureCollection',
+      features: []
+    });
+  map.addLayer({
+    id: 'radDis',
+    type: 'line',
+    source: 'radDis',
+    layout: {
+      'line-join': 'round',
+      'line-cap': 'round'
+    },
+    paint: {
+      'line-color': '#D3D3D3',
+      'line-width': 3,
+      'line-dasharray': [1, 2],
+    }
+  });
+
+  //remove radius distance
+  map.removeLayer('nonRoad');
+  map.getSource('nonRoad').setData({
+      type: 'FeatureCollection',
+      features: []
+    });
+  map.addLayer({
+    id: 'nonRoad',
+    type: 'line',
+    source: 'nonRoad',
+    layout: {
+      'line-join': 'round',
+      'line-cap': 'round'
+    },
+    paint: {
+      'line-color': '#3887be',
+      'line-width': 3,
+      'line-dasharray': [1, 2],
+    }
+  });
 
 };

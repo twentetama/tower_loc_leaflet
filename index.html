@@ -5,6 +5,8 @@
     <meta charset='utf-8' />
     <title>Bakti Communication Tower Location</title>
     <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+    <!-- font -->
+    <link href="https://fonts.googleapis.com/css?family=Merriweather|Source+Sans+Pro" rel="stylesheet">
     <!-- initiate mapbox-->
     <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v0.51.0/mapbox-gl.js'></script>
     <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v0.51.0/mapbox-gl.css' rel='stylesheet' />
@@ -32,34 +34,38 @@
 
       #map {
         position: absolute;
-        width: 100%;
-        height: 400px;
+        width: 65%;
+        height: 500px;
+        top: 100px;
+        right:5px;
       }
       html, body {
         height: 100%;
+        font-family: 'Source Sans Pro', sans-serif;
         margin: 0;
         padding: 0;
 
       }
       h1 {
-        font-family: verdana;
+        font-family: 'Merriweather', serif;;
         text-align: left;
       }
       .input-coordinate {
-        font: 12px/20px 'Helvetica Neue', Arial, Helvetica, sans-serif;
+        font: 12px/20px 'Source Sans Pro', sans-serif;
         font-weight: 600;
         position: absolute;
-        top: 500px;
-        left: 10px;
+        top: 100px;
+        left: 50px;
         z-index: 1;
         border-radius: 3px;
         max-width: 20%;
+        box-sizing: border-box;
       }
       .display-toggle {
-        font: 12px/20px 'Helvetica Neue', Arial, Helvetica, sans-serif;
+        font: 12px/20px 'Source Sans Pro', sans-serif;
         font-weight: 600;
         position: absolute;
-        top: 500px;
+        top: 620px;
         right: 10px;
         z-index: 1;
         border-radius: 3px;
@@ -67,11 +73,22 @@
       }
 
       .info {
-        font: 12px/20px 'Helvetica Neue', Arial, Helvetica, sans-serif;
+        font: 12px/20px 'Source Sans Pro', sans-serif;
         font-weight: 600;
         position: absolute;
-        top: 500px;
-        left:300px;
+        top: 300px;
+        left:50px;
+        z-index: 1;
+        border-radius: 3px;
+        max-width: 50%;
+      }
+
+      .info2 {
+        font: 12px/20px 'Source Sans Pro', sans-serif;
+        font-weight: 600;
+        position: absolute;
+        top: 400px;
+        left:50px;
         z-index: 1;
         border-radius: 3px;
         max-width: 50%;
@@ -89,14 +106,16 @@
   </div>
   <div id='info' class="info">
   </div>
+  <div id='info2' class="info2">
+  </div>
   <div class='input-coordinate'>
     <form>
-      <p> Please enter the coordinate below </p>
+      <h2> Masukan titik kordinat pada kotak di bawah ini </h2>
       Latitude:<br>
       <input type="text" id="lat" value=""><br>
       Longitude:<br>
       <input type="text" id="lng" value=""><br><br>
-      <input type="button" value="Submit" onclick="addNewMarker()"/>
+      <input type="button" value="Kirim" onclick="addNewMarker()"/>
       <input type="reset" onclick="reSet()">
     </form>
   </div>

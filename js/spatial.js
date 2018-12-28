@@ -4,13 +4,26 @@ var map = new mapboxgl.Map({
   container: 'map', // container id
   style: 'mapbox://styles/mapbox/satellite-streets-v9', // stylesheet location
   center: [118.0149, -2.5489], // starting position
-  zoom: 4 // starting zoom
+  zoom: 3.75 // starting zoom
 });
 
 map.addControl(new mapboxgl.NavigationControl());
 
 //initiate feature on load
 map.on('load', function() {
+
+  /*var newPoints = [];
+  for (i = 0; i < towerLoc.features.length; i++) {
+    newPoints.push(towerLoc.features[i].geometry.coordinates);
+  };
+  var existPoint = turf.points(newPoints);
+
+  /*var newDots = []
+  for (i = 0; i < searchWithin.length; i++) {
+    if (turf.booleanContains(circle, searchWithin[i])){
+      newDots.push(searchWithin[i]);
+    } else {}
+  };*/
 
   //setting geoJSON in the map
   map.addLayer({
@@ -182,27 +195,55 @@ map.on('load', function() {
     }
   });
 
+  //container for buffer
+  map.addSource('buffer', {
+    type: 'geojson',
+    data: {
+      type: 'FeatureCollection',
+      features: []
+    }
+  });
+
+  map.addLayer({
+    id: 'data',
+    type: 'circle',
+    source: 'buffer',
+    paint: {
+      'circle-color': '#00b7bf',
+      'circle-stroke-width': 1,
+      'circle-stroke-color': '#333',
+      'circle-radius':1000
+   },
+  });
+
 });
 
+//initiate variable
 var point = null;
 var popup = null;
 var newMarker = null;
 var nearestTower = null;
 var linesDashed = null;
 var element = document.getElementById("info");
+var element2 = document.getElementById("info2");
+var surPoints = [];
 
 
-//Add point based on latlong input
+
+//Add feature based on latlong input
 function addNewMarker (){
+  //obtain data from input
   var newLat = document.getElementById('lat').value;
   var newLong = document.getElementById('lng').value;
   var newLoc = L.latLng(newLat, newLong);
   var point = turf.point([newLong, newLat]);
+
+  //initiate nearest tower
   var nearestTower = turf.nearest(point, towerLoc);
   var distance = Math.round(nearestTower.properties.distanceToPoint);
   var radCoor = nearestTower.geometry.coordinates;
   let distanceRoad = null;
-  console.log(nearestTower);
+  //console.log(nearestTower);
 
   //zooming
   map.flyTo({
@@ -216,13 +257,15 @@ function addNewMarker (){
       }
     });
 
-  console.log(nearestTower);
+  //initiate surrounding tower
+  var surTowCoor = [newLong, newLat];
+  var radius = 25;
+  var options = {steps: 100, units: 'kilometers'};
+  var circle = turf.circle(surTowCoor, radius, options);
+  var surTows = turf.pointsWithinPolygon(towerLoc, circle);
+  console.log(surTows);
 
-  map.getSource('new-point').setData({
-      type: 'FeatureCollection',
-      features: [nearestTower]
-    });
-
+  //initiate route and distance
   $.ajax({
     method: 'GET',
     url: 'https://api.mapbox.com/directions/v5/mapbox/driving/'+newLong+','+newLat+';'+nearestTower.geometry.coordinates+'?access_token='+mapboxgl.accessToken+'&geometries=geojson',
@@ -236,14 +279,10 @@ function addNewMarker (){
     var radiusDis = [radCoor,[Number(newLong), Number(newLat)]];
     var distanceNoRoad1 = turf.distance(lastPoint, point, {units: 'miles'});
     var distanceNoRoad2 = turf.distance(radCoor, nonRoad[nonRoad.length-1], {units: 'miles'});
-
     var noRoadDashed2 = turf.multiLineString([noRoad1,noRoad2]);
-
-    //var noRoadDashed = turf.lineString(noRoad);
-
     var radDashed = turf.lineString(radiusDis);
 
-
+    //initiate new feature
     map.getSource('route')
         .setData(routeGeoJSON);
 
@@ -253,33 +292,66 @@ function addNewMarker (){
     map.getSource('radDis')
         .setData(radDashed);
 
+    //calculate information
     let distanceRoad = Math.round(rute.routes[0].distance/1000);
     var noRoadValue1 = Math.round((distanceNoRoad1*1609.344)/1000);
     var noRoadValue2 = Math.round((distanceNoRoad2*1609.344)/1000);
     var noRoadValue = Math.round((((distanceNoRoad1*1609.344)+(distanceNoRoad2*1609.344))/1000));
 
-
-    //if condition
-    /*if (distanceNoRoad1 = 0 || distanceNoRoad2 = 0){
-      var popup = new mapboxgl.Popup({ offset: 25 })
-        .setHTML('<h3>New Location</h3>'+'<p>Coordinate : '+newLat+', '+newLong+'</p>'+'<h4>Nearest Tower</h4>'+'<p>'+nearestTower.properties.Lokasi+'</p>'+'<p>Distance (r): '+distance+' km</p>'+'<p>Distance (road network): '+distanceRoad+' km +'+noRoadValue+' km non-road</p>');
-    } else {
-      var popup = new mapboxgl.Popup({ offset: 25 })
-        .setHTML('<h3>New Location</h3>'+'<p>Coordinate : '+newLat+', '+newLong+'</p>'+'<h4>Nearest Tower</h4>'+'<p>'+nearestTower.properties.Lokasi+'</p>'+'<p>Distance (r): '+distance+' km</p>'+'<p>Distance (road network): '+distanceRoad+' km +'+noRoadValue+' km non-road</p>');
-    }*/
-
-    console.log(noRoadValue);
-
-    //popup
+    //initiate popup
     var popup = new mapboxgl.Popup({ offset: 25 })
       .setHTML('<h3>New Location</h3>'+'<p>Coordinate : '+newLat+', '+newLong+'</p>');
 
+    //new location marker
     newMarker = new mapboxgl.Marker()
       .setLngLat(newLoc)
       .setPopup(popup)
       .addTo(map);
 
-    if (noRoadValue1 === 0 && noRoadValue2 === 0){
+    //distance surrounding
+    var numSur = [];
+    for (let i = 0; i < surTows.features.length; i++) {
+      numSur.push(turf.nearest(surTows.features[i].geometry.coordinates, point));
+    }
+    var surNum = [];
+    for (let i = 0; i < numSur.length; i++) {
+      surNum.push(Math.round(numSur[i].properties.distanceToPoint));
+    };
+
+    //initiate surrounding markers
+    for (let i = 0; i < surTows.features.length; i++) {
+      surPoints.push(surTows.features[i].geometry.coordinates);
+      };
+
+    var surLoc = turf.multiPoint(surPoints);
+    console.log(surNum);
+
+    //initiate nearest tower
+    map.getSource('new-point').setData({
+        type: 'FeatureCollection',
+        features: [surLoc]
+      });
+
+    var textInfo=[];
+
+    for (let i = 0; i < surTows.features.length; i++) {
+      textInfo.push(surTows.features[i].properties.Lokasi+', '+surTows.features[i].properties.Teknologi);
+    };
+
+    console.log(textInfo);
+
+    var ul = document.createElement('ul');
+    element2.appendChild(ul);
+    textInfo.forEach(function (item) {
+      var li = document.createElement('li');
+      ul.appendChild(li);
+      li.innerHTML += item;
+    });
+
+    //print info on HTML
+    element.innerHTML = '<p>Anda memasukkan titik koordinat '+newLat+', '+newLong+'<p>'+'<p>Dalam radius 25 km terdapat '+surTows.features.length+' menara telekomunikasi<p>';
+
+    /*if (noRoadValue1 === 0 && noRoadValue2 === 0){
       element.innerHTML = '<h2><b>Nearest Tower</b></h2>'+'<p>'+nearestTower.properties.Lokasi+'</p>'+'<p>Distance (r): '+distance+' km</p>'+'<p>Distance (road network): '+distanceRoad;
     } else if (noRoadValue1 === 0 && noRoadValue2 <= 1){
       element.innerHTML = '<h2><b>Nearest Tower</b></h2>'+'<p>'+nearestTower.properties.Lokasi+'</p>'+'<p>Distance (r): '+distance+' km</p>'+'<p>Distance (road network): '+distanceRoad+' km</p>'+'<p>Non road distance = '+noRoadValue+' km</p>';
@@ -287,10 +359,14 @@ function addNewMarker (){
       element.innerHTML = '<h2><b>Nearest Tower</b></h2>'+'<p>'+nearestTower.properties.Lokasi+'</p>'+'<p>Distance (r): '+distance+' km</p>'+'<p>Distance (road network): '+distanceRoad+' km</p>'+'<p>Non road distance = '+noRoadValue+' km</p>';
     } else {
       element.innerHTML = '<h2><b>Nearest Tower</b></h2>'+'<p>'+nearestTower.properties.Lokasi+'</p>'+'<p>Distance (r): '+distance+' km</p>'+'<p>Distance (road network): '+distanceRoad+' km</p>'+'<p>Non road distance 1 (New location to the nearest road) = '+noRoadValue1+' km</p>'+'<p>Non road distance 2 (Existing location to the nearest road) = '+noRoadValue2+' km</p>';
-    };
+    };*/
+
+
   });
 };
 
+
+//reset function
 function reSet(){
   newMarker.remove();
 
@@ -375,6 +451,26 @@ function reSet(){
     }
   });
 
+  //remove buffer
+  map.removeLayer('buffer');
+  map.getSource('buffer').setData({
+      type: 'FeatureCollection',
+      features: []
+    });
+  map.addLayer({
+    id: 'buffer',
+    type: 'circle',
+    source: 'buffer',
+    paint: {
+      "circle-radius": 10,
+      "circle-color": "#007cbf",
+      "circle-opacity": 0.5,
+      "circle-stroke-width": 0,
+    },
+  });
+
+  //erase information
   element.innerHTML = ''
+  element2.innerHTML = ''
 
 };

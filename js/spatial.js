@@ -222,6 +222,8 @@ map.on('load', function() {
 var point = null;
 var popup = null;
 var newMarker = null;
+var myCircle = null;
+var surTows = null;
 var nearestTower = null;
 var linesDashed = null;
 var element = document.getElementById("info");
@@ -238,17 +240,33 @@ function addNewMarker (){
   var newLoc = L.latLng(newLat, newLong);
   var point = turf.point([newLong, newLat]);
 
+  //initiate surrounding tower
+  var surTowCoor = [newLong, newLat];
+  var radius = 25;
+  var options = {steps: 100, units: 'kilometers'};
+  var circle = turf.circle(surTowCoor, radius, options);
+  surTows = turf.pointsWithinPolygon(towerLoc, circle);
+  console.log(surTows);
+
   //initiate nearest tower
-  var nearestTower = turf.nearest(point, towerLoc);
+  nearestTower = turf.nearest(point, towerLoc)
+
   var distance = Math.round(nearestTower.properties.distanceToPoint);
   var radCoor = nearestTower.geometry.coordinates;
   let distanceRoad = null;
   //console.log(nearestTower);
 
+  //add radius buffer;
+  myCircle = new MapboxCircle(newLoc, 25000, {
+        editable: false,
+        minRadius: 1500,
+        fillColor: '#29AB87'
+    }).addTo(map);
+
   //zooming
   map.flyTo({
     center: newLoc,
-    zoom: 10,
+    zoom: 9,
     bearing: 0,
     speed: 1,
     curve: 0.5,
@@ -257,15 +275,8 @@ function addNewMarker (){
       }
     });
 
-  //initiate surrounding tower
-  var surTowCoor = [newLong, newLat];
-  var radius = 25;
-  var options = {steps: 100, units: 'kilometers'};
-  var circle = turf.circle(surTowCoor, radius, options);
-  var surTows = turf.pointsWithinPolygon(towerLoc, circle);
-  console.log(surTows);
-
   //initiate route and distance
+
   $.ajax({
     method: 'GET',
     url: 'https://api.mapbox.com/directions/v5/mapbox/driving/'+newLong+','+newLat+';'+nearestTower.geometry.coordinates+'?access_token='+mapboxgl.accessToken+'&geometries=geojson',
@@ -282,15 +293,17 @@ function addNewMarker (){
     var noRoadDashed2 = turf.multiLineString([noRoad1,noRoad2]);
     var radDashed = turf.lineString(radiusDis);
 
-    //initiate new feature
-    map.getSource('route')
-        .setData(routeGeoJSON);
+    if (surTows.features.length != 0) {
+      //initiate new feature
+      map.getSource('route')
+          .setData(routeGeoJSON);
 
-    map.getSource('nonRoad')
-        .setData(noRoadDashed2);
+      map.getSource('nonRoad')
+          .setData(noRoadDashed2);
 
-    map.getSource('radDis')
-        .setData(radDashed);
+      map.getSource('radDis')
+          .setData(radDashed);
+        } else {};
 
     //calculate information
     let distanceRoad = Math.round(rute.routes[0].distance/1000);
@@ -335,10 +348,8 @@ function addNewMarker (){
     var textInfo=[];
 
     for (let i = 0; i < surTows.features.length; i++) {
-      textInfo.push(surTows.features[i].properties.Lokasi+', '+surTows.features[i].properties.Teknologi);
+      textInfo.push(surTows.features[i].properties.Lokasi+', '+surTows.features[i].properties.Teknologi+', '+surNum[i]+' km');
     };
-
-    console.log(textInfo);
 
     var ul = document.createElement('ul');
     element2.appendChild(ul);
@@ -348,8 +359,15 @@ function addNewMarker (){
       li.innerHTML += item;
     });
 
+    console.log(surTows);
+
     //print info on HTML
-    element.innerHTML = '<p>Anda memasukkan titik koordinat '+newLat+', '+newLong+'<p>'+'<p>Dalam radius 25 km terdapat '+surTows.features.length+' menara telekomunikasi<p>';
+    if (surTows.features.length >= 0) {
+      element.innerHTML = '<p>Anda memasukkan titik koordinat Latitude: '+newLat+', Longitude: '+newLong+'<p>'+'<p>Dalam radius 25 km terdapat '+surTows.features.length+' menara telekomunikasi<p>';
+    } else {
+      element.innerHTML = '<p>Anda memasukkan titik koordinat '+newLat+', '+newLong+'<p>'+'<p>Dalam radius 25 km tidak terdapat menara telekomunikasi<p>';
+    }
+
 
     /*if (noRoadValue1 === 0 && noRoadValue2 === 0){
       element.innerHTML = '<h2><b>Nearest Tower</b></h2>'+'<p>'+nearestTower.properties.Lokasi+'</p>'+'<p>Distance (r): '+distance+' km</p>'+'<p>Distance (road network): '+distanceRoad;
@@ -369,6 +387,7 @@ function addNewMarker (){
 //reset function
 function reSet(){
   newMarker.remove();
+  myCircle.remove();
 
   //remove new point
   map.getSource('new-point').setData({
@@ -449,24 +468,6 @@ function reSet(){
       'line-width': 3,
       'line-dasharray': [1, 2],
     }
-  });
-
-  //remove buffer
-  map.removeLayer('buffer');
-  map.getSource('buffer').setData({
-      type: 'FeatureCollection',
-      features: []
-    });
-  map.addLayer({
-    id: 'buffer',
-    type: 'circle',
-    source: 'buffer',
-    paint: {
-      "circle-radius": 10,
-      "circle-color": "#007cbf",
-      "circle-opacity": 0.5,
-      "circle-stroke-width": 0,
-    },
   });
 
   //erase information

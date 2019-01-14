@@ -29,6 +29,8 @@ for (let i = 0; i < towerLoc.features.length; i++) {
   }
 };
 
+var counter = 0;
+
 console.log(nonVsat);
 console.log(vsat);
 console.log(towerLoc);
@@ -134,7 +136,7 @@ map.on('load', function() {
     source: 'location-VSAT',
     paint: {
       'circle-radius': 10,
-      'circle-color': '#0000FF'
+      'circle-color': '#ADD8E6'
     }
   });
 
@@ -345,145 +347,125 @@ class SurroundingTower {
   };
 };
 
-//Add feature based on latlong input
-function addNewMarker (){
-  //obtain data from input
-  newLat = document.getElementById('lat').value;
-  newLong = document.getElementById('lng').value;
-  let addedLoc = L.latLng(newLat, newLong);
-  point = turf.point([newLong, newLat]);
+function drawLines(target){
+  //draw lines on click
+  map.on('click',target, function (e) {
+    let coorLng = e.lngLat.lng;
+    let coorLt = e.lngLat.lat;
 
-  //zooming
-  map.flyTo({
-    center: addedLoc,
-    zoom: 8.5,
-    bearing: 0,
-    speed: 1,
-    curve: 0.5,
-    easing: function (t) {
-      return t;
-    }
+    //initiate route and distance
+    $.ajax({
+      method: 'GET',
+      url: 'https://api.mapbox.com/directions/v5/mapbox/driving/'+newLong+','+newLat+';'+coorLng+','+coorLt+'?access_token='+mapboxgl.accessToken+'&geometries=geojson',
+    }).done(function(data){
+      console.log(data);
+      var rute = data;
+      var routeGeoJSON = turf.featureCollection([turf.feature(data.routes[0].geometry)]);
+      var nonRoad = data.routes[0].geometry.coordinates;
+      var lastPoint = nonRoad[0];
+      var noRoad1 = [lastPoint,[Number(newLong), Number(newLat)]];
+      var noRoad2 = [[coorLng, coorLt],nonRoad[nonRoad.length-1]];
+      var radiusDis = [[coorLng, coorLt],[Number(newLong), Number(newLat)]];
+      var distanceNoRoad1 = turf.distance(lastPoint, point, {units: 'miles'});
+      var distanceNoRoad2 = turf.distance([coorLng, coorLt], nonRoad[nonRoad.length-1], {units: 'miles'});
+      var noRoadDashed2 = turf.multiLineString([noRoad1,noRoad2]);
+      var radDashed = turf.lineString(radiusDis);
+      map.getSource('route')
+          .setData(routeGeoJSON);
+
+      map.getSource('nonRoad')
+          .setData(noRoadDashed2);
+
+      map.getSource('radDis')
+          .setData(radDashed);
+
+    });
   });
-
-  //initiate popup
-  var popup = new mapboxgl.Popup({ offset: 25 })
-    .setHTML('<h3>New Location</h3>'+'<p>Coordinate : '+newLat+', '+newLong+'</p>');
-
-  //new location marker
-  newMarker = new mapboxgl.Marker()
-    .setLngLat(addedLoc)
-    .setPopup(popup)
-    .addTo(map);
-
-  bufferVSAT = new MapboxCircle(addedLoc, 25000, {
-    editable: false,
-    minRadius: 1500,
-    fillColor: '#29AB87'
-  }).addTo(map);
-
-  bufferNonVsat = new MapboxCircle(addedLoc, 50000, {
-    editable: false,
-    minRadius: 1500,
-    fillColor: '#29AB87'
-  }).addTo(map);
-
-  //initiate surrounding tower BTS
-  let surroundingVSAT = new SurroundingTower(newLat,newLong,25,vsat);
-  let surroundingNonVSAT = new SurroundingTower(newLat,newLong,50,nonVsat)
-  draw('location-VSAT',surroundingVSAT.addPoints);
-  draw('location-NonVSAT',surroundingNonVSAT.addPoints);
-  writeText(surroundingVSAT.addText,element3);
-  writeText(surroundingNonVSAT.addText,element5)
-  console.log(surroundingNonVSAT.addPoints);
-  console.log(surroundingVSAT.addPoints);
-
-
-  //print info on HTML
-  element.innerHTML = '<p>Anda memasukkan titik koordinat Latitude: '+newLat+', Longitude: '+newLong+'<p>';
-
-  if (surroundingVSAT.surroundingPoints.features.length >= 1 && surroundingNonVSAT.surroundingPoints.features.length >= 1) {
-    element2.innerHTML = '<p>Dalam radius 25 km terdapat '+surroundingVSAT.surroundingPoints.features.length+' menara telekomunikasi VSAT<p>';
-    element4.innerHTML = '<p>Dalam radius 50 km terdapat '+surroundingNonVSAT.surroundingPoints.features.length+' menara telekomunikasi Non-VSAT<p>';
-  } else if (surroundingVSAT.surroundingPoints.features.length >= 1 && surroundingNonVSAT.surroundingPoints.features.length == 0) {
-    element2.innerHTML = '<p>Dalam radius 25 km terdapat '+surroundingVSAT.surroundingPoints.features.length+' menara telekomunikasi<p>';
-    element4.innerHTML = '<p>Dalam radius 50 km tidak terdapat menara telekomunikasi lain';
-  } else if (surroundingVSAT.surroundingPoints.features.length == 0 && surroundingNonVSAT.surroundingPoints.features.length >= 1) {
-    element2.innerHTML = '<p>Dalam radius 25 km tidak terdapat menara telekomunikasi VSAT<p>';
-    element4.innerHTML = '<p>Dalam radius 50 km terdapat '+surroundingNonVSAT.surroundingPoints.features.length+' menara telekomunikasi Non-VSAT<p>';
-  } else {
-    element2.innerHTML = '<p>Tidak terdapat menara telekomunikasi VSAT dan non-VSAT disekitar titik lokasi yang dituju<p>';
-  };
 };
 
-//draw lines on click
-map.on('click','new-point', function (e) {
-  let coorLng = e.lngLat.lng;
-  let coorLt = e.lngLat.lat;
+//Add feature based on latlong input
+function addNewMarker (){
+  counter += 1;
 
-  //initiate route and distance
-  $.ajax({
-    method: 'GET',
-    url: 'https://api.mapbox.com/directions/v5/mapbox/driving/'+newLong+','+newLat+';'+coorLng+','+coorLt+'?access_token='+mapboxgl.accessToken+'&geometries=geojson',
-  }).done(function(data){
-    console.log(data);
-    var rute = data;
-    var routeGeoJSON = turf.featureCollection([turf.feature(data.routes[0].geometry)]);
-    var nonRoad = data.routes[0].geometry.coordinates;
-    var lastPoint = nonRoad[0];
-    var noRoad1 = [lastPoint,[Number(newLong), Number(newLat)]];
-    var noRoad2 = [[coorLng, coorLt],nonRoad[nonRoad.length-1]];
-    var radiusDis = [[coorLng, coorLt],[Number(newLong), Number(newLat)]];
-    var distanceNoRoad1 = turf.distance(lastPoint, point, {units: 'miles'});
-    var distanceNoRoad2 = turf.distance([coorLng, coorLt], nonRoad[nonRoad.length-1], {units: 'miles'});
-    var noRoadDashed2 = turf.multiLineString([noRoad1,noRoad2]);
-    var radDashed = turf.lineString(radiusDis);
-    map.getSource('route')
-        .setData(routeGeoJSON);
+  if (counter >1) {
+    alert('mohon tekan tombol reset terlebih dahulu');
+  } else {
+    //obtain data from input
+    newLat = document.getElementById('lat').value;
+    newLong = document.getElementById('lng').value;
+    let addedLoc = L.latLng(newLat, newLong);
+    point = turf.point([newLong, newLat]);
 
-    map.getSource('nonRoad')
-        .setData(noRoadDashed2);
+    //zooming
+    map.flyTo({
+      center: addedLoc,
+      zoom: 8.5,
+      bearing: 0,
+      speed: 1,
+      curve: 0.5,
+      easing: function (t) {
+        return t;
+      }
+    });
 
-    map.getSource('radDis')
-        .setData(radDashed);
+    //initiate popup
+    var popup = new mapboxgl.Popup({ offset: 25 })
+      .setHTML('<h3>New Location</h3>'+'<p>Coordinate : '+newLat+', '+newLong+'</p>');
 
-    /*function tes (){
-    //calculate information
-    let distanceRoad = Math.round(rute.routes[0].distance/1000);
-    var noRoadValue1 = Math.round((distanceNoRoad1*1609.344)/1000);
-    var noRoadValue2 = Math.round((distanceNoRoad2*1609.344)/1000);
-    var noRoadValue = Math.round((((distanceNoRoad1*1609.344)+(distanceNoRoad2*1609.344))/1000));
+    //new location marker
+    newMarker = new mapboxgl.Marker()
+      .setLngLat(addedLoc)
+      .setPopup(popup)
+      .addTo(map);
 
-    //initiate nearest tower
-    map.getSource('new-point').setData({
-        type: 'FeatureCollection',
-        features: [surroundingLocation]
-      });
+    bufferVSAT = new MapboxCircle(addedLoc, 25000, {
+      editable: false,
+      minRadius: 1500,
+      fillColor: '#29AB87'
+    }).addTo(map);
 
-    var textInfo=[];
+    bufferNonVsat = new MapboxCircle(addedLoc, 50000, {
+      editable: false,
+      minRadius: 1500,
+      fillColor: '#29AB87'
+    }).addTo(map);
+
+    //initiate surrounding tower BTS
+    let surroundingVSAT = new SurroundingTower(newLat,newLong,25,vsat);
+    let surroundingNonVSAT = new SurroundingTower(newLat,newLong,50,nonVsat)
+    draw('location-VSAT',surroundingVSAT.addPoints);
+    draw('location-NonVSAT',surroundingNonVSAT.addPoints);
+    writeText(surroundingVSAT.addText,element3);
+    writeText(surroundingNonVSAT.addText,element5);
+    drawLines('location-VSAT');
+    drawLines('location-NonVSAT');
+    console.log(surroundingNonVSAT.addPoints);
+    console.log(surroundingVSAT.addPoints);
+
 
     //print info on HTML
-    if (surTows.features.length >= 0) {
-      element.innerHTML = '<p>Anda memasukkan titik koordinat Latitude: '+newLat+', Longitude: '+newLong+'<p>'+'<p>Dalam radius 25 km terdapat '+surTows.features.length+' menara telekomunikasi<p>';
-    } else {
-      element.innerHTML = '<p>Anda memasukkan titik koordinat '+newLat+', '+newLong+'<p>'+'<p>Dalam radius 25 km tidak terdapat menara telekomunikasi<p>';
-    }
+    element.innerHTML = '<p>Anda memasukkan titik koordinat Latitude: '+newLat+', Longitude: '+newLong+'<p>';
 
-
-    if (noRoadValue1 === 0 && noRoadValue2 === 0){
-      element.innerHTML = '<h2><b>Nearest Tower</b></h2>'+'<p>'+nearestTower.properties.Lokasi+'</p>'+'<p>Distance (r): '+distance+' km</p>'+'<p>Distance (road network): '+distanceRoad;
-    } else if (noRoadValue1 === 0 && noRoadValue2 <= 1){
-      element.innerHTML = '<h2><b>Nearest Tower</b></h2>'+'<p>'+nearestTower.properties.Lokasi+'</p>'+'<p>Distance (r): '+distance+' km</p>'+'<p>Distance (road network): '+distanceRoad+' km</p>'+'<p>Non road distance = '+noRoadValue+' km</p>';
-    } else if (noRoadValue1 <= 1 && noRoadValue2 === 0){
-      element.innerHTML = '<h2><b>Nearest Tower</b></h2>'+'<p>'+nearestTower.properties.Lokasi+'</p>'+'<p>Distance (r): '+distance+' km</p>'+'<p>Distance (road network): '+distanceRoad+' km</p>'+'<p>Non road distance = '+noRoadValue+' km</p>';
+    if (surroundingVSAT.surroundingPoints.features.length >= 1 && surroundingNonVSAT.surroundingPoints.features.length >= 1) {
+      element2.innerHTML = '<p>Dalam radius 25 km terdapat '+surroundingVSAT.surroundingPoints.features.length+' menara telekomunikasi VSAT<p>';
+      element4.innerHTML = '<p>Dalam radius 50 km terdapat '+surroundingNonVSAT.surroundingPoints.features.length+' menara telekomunikasi Non-VSAT<p>';
+    } else if (surroundingVSAT.surroundingPoints.features.length >= 1 && surroundingNonVSAT.surroundingPoints.features.length == 0) {
+      element2.innerHTML = '<p>Dalam radius 25 km terdapat '+surroundingVSAT.surroundingPoints.features.length+' menara telekomunikasi<p>';
+      element4.innerHTML = '<p>Dalam radius 50 km tidak terdapat menara telekomunikasi lain';
+    } else if (surroundingVSAT.surroundingPoints.features.length == 0 && surroundingNonVSAT.surroundingPoints.features.length >= 1) {
+      element2.innerHTML = '<p>Dalam radius 25 km tidak terdapat menara telekomunikasi VSAT<p>';
+      element4.innerHTML = '<p>Dalam radius 50 km terdapat '+surroundingNonVSAT.surroundingPoints.features.length+' menara telekomunikasi Non-VSAT<p>';
     } else {
-      element.innerHTML = '<h2><b>Nearest Tower</b></h2>'+'<p>'+nearestTower.properties.Lokasi+'</p>'+'<p>Distance (r): '+distance+' km</p>'+'<p>Distance (road network): '+distanceRoad+' km</p>'+'<p>Non road distance 1 (New location to the nearest road) = '+noRoadValue1+' km</p>'+'<p>Non road distance 2 (Existing location to the nearest road) = '+noRoadValue2+' km</p>';
+      element2.innerHTML = '<p>Tidak terdapat menara telekomunikasi VSAT dan non-VSAT disekitar <br> titik lokasi yang dituju<p>';
     };
-    };*/
-  });
-});
+  };
+
+
+};
 
 //reset function
 function reSet(){
+  counter = 0;
   newMarker.remove();
   bufferVSAT.remove();
   bufferNonVsat.remove();
